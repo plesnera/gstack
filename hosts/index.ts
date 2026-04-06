@@ -13,10 +13,11 @@ import kiro from './kiro';
 import opencode from './opencode';
 import slate from './slate';
 import cursor from './cursor';
-import openclaw from './openclaw';
+import openclaw from './openclaw'
+import vibe from './vibe';
 
 /** All registered host configs. Add new hosts here. */
-export const ALL_HOST_CONFIGS: HostConfig[] = [claude, codex, factory, kiro, opencode, slate, cursor, openclaw];
+export const ALL_HOST_CONFIGS: HostConfig[] = [claude, codex, factory, kiro, opencode, slate, cursor, openclaw, vibe];
 
 /** Map from host name to config. */
 export const HOST_CONFIG_MAP: Record<string, HostConfig> = Object.fromEntries(
