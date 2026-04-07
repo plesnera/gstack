@@ -41,7 +41,7 @@ TEAM_MODE=0
 NO_TEAM_MODE=0
 while [ $# -gt 0 ]; do
   case "$1" in
-    --host) [ -z "$2" ] && echo "Missing value for --host (expected claude, codex, kiro, or auto)" >&2 && exit 1; HOST="$2"; shift 2 ;;
+    --host) [ -z "$2" ] && echo "Missing value for --host (expected claude, codex, kiro, vibe or auto)" >&2 && exit 1; HOST="$2"; shift 2 ;;
     --host=*) HOST="${1#--host=}"; shift ;;
     --local) LOCAL_INSTALL=1; shift ;;
     --prefix)    SKILL_PREFIX=1; SKILL_PREFIX_FLAG=1; shift ;;
@@ -54,7 +54,7 @@ while [ $# -gt 0 ]; do
 done
 
 case "$HOST" in
-  claude|codex|kiro|factory|auto) ;;
+  claude|codex|kiro|factory|vibe|auto) ;;
   openclaw)
     echo ""
     echo "OpenClaw integration uses a different model — OpenClaw spawns Claude Code"
@@ -67,7 +67,7 @@ case "$HOST" in
     echo "  3. See docs/OPENCLAW.md for the full architecture"
     echo ""
     exit 0 ;;
-  *) echo "Unknown --host value: $HOST (expected claude, codex, kiro, factory, openclaw, or auto)" >&2; exit 1 ;;
+  *) echo "Unknown --host value: $HOST (expected claude, codex, kiro, factory, openclaw, vibe or auto)" >&2; exit 1 ;;
 esac
 
 # ─── Resolve skill prefix preference ─────────────────────────
@@ -130,11 +130,13 @@ INSTALL_CLAUDE=0
 INSTALL_CODEX=0
 INSTALL_KIRO=0
 INSTALL_FACTORY=0
+INSTALL_VIBE=0
 if [ "$HOST" = "auto" ]; then
   command -v claude >/dev/null 2>&1 && INSTALL_CLAUDE=1
   command -v codex >/dev/null 2>&1 && INSTALL_CODEX=1
   command -v kiro-cli >/dev/null 2>&1 && INSTALL_KIRO=1
   command -v droid >/dev/null 2>&1 && INSTALL_FACTORY=1
+  command -v vibe >/dev/null 2>&1 && INSTALL_VIBE=1
   # If none found, default to claude
   if [ "$INSTALL_CLAUDE" -eq 0 ] && [ "$INSTALL_CODEX" -eq 0 ] && [ "$INSTALL_KIRO" -eq 0 ] && [ "$INSTALL_FACTORY" -eq 0 ]; then
     INSTALL_CLAUDE=1
@@ -762,6 +764,62 @@ if [ "$INSTALL_FACTORY" -eq 1 ]; then
   echo "gstack ready (factory)."
   echo "  browse: $BROWSE_BIN"
   echo "  factory skills: $FACTORY_SKILLS"
+fi
+
+# 6c. Install for Vibe CLI (copy from .agents/skills, rewrite paths)
+if [ "$INSTALL_VIBE" -eq 1 ]; then
+  VIBE_SKILLS="$HOME/.vibe/skills"
+  AGENTS_DIR="$SOURCE_GSTACK_DIR/.agents/skills"
+  mkdir -p "$VIBE_SKILLS"
+
+  # Create gstack dir with symlinks for runtime assets, copy+sed for SKILL.md
+  VIBE_GSTACK="$VIBE_SKILLS/gstack"
+  # Remove old whole-dir symlink from previous installs
+  [ -L "$VIBE_GSTACK" ] && rm -f "$VIBE_GSTACK"
+  mkdir -p "$VIBE_GSTACK" "$VIBE_GSTACK/browse" "$VIBE_GSTACK/gstack-upgrade" "$VIBE_GSTACK/review"
+  ln -snf "$SOURCE_GSTACK_DIR/bin" "$VIBE_GSTACK/bin"
+  ln -snf "$SOURCE_GSTACK_DIR/browse/dist" "$VIBE_GSTACK/browse/dist"
+  ln -snf "$SOURCE_GSTACK_DIR/browse/bin" "$VIBE_GSTACK/browse/bin"
+  # ETHOS.md — referenced by "Search Before Building" in all skill preambles
+  if [ -f "$SOURCE_GSTACK_DIR/ETHOS.md" ]; then
+    ln -snf "$SOURCE_GSTACK_DIR/ETHOS.md" "$VIBE_GSTACK/ETHOS.md"
+  fi
+  # gstack-upgrade skill
+  if [ -f "$AGENTS_DIR/gstack-upgrade/SKILL.md" ]; then
+    ln -snf "$AGENTS_DIR/gstack-upgrade/SKILL.md" "$VIBE_GSTACK/gstack-upgrade/SKILL.md"
+  fi
+  # Review runtime assets (individual files, not whole dir)
+  for f in checklist.md design-checklist.md greptile-triage.md TODOS-format.md; do
+    if [ -f "$SOURCE_GSTACK_DIR/review/$f" ]; then
+      ln -snf "$SOURCE_GSTACK_DIR/review/$f" "$VIBE_GSTACK/review/$f"
+    fi
+  done
+
+  # Rewrite root SKILL.md paths for Kiro
+  sed -e "s|~/.claude/skills/gstack|~/.vibe/skills/gstack|g" \
+      -e "s|\.claude/skills/gstack|.vibe/skills/gstack|g" \
+      -e "s|\.claude/skills|.vibe/skills|g" \
+      "$SOURCE_GSTACK_DIR/SKILL.md" > "$VIBE_GSTACK/SKILL.md"
+
+  if [ ! -d "$AGENTS_DIR" ]; then
+    echo "  warning: no .agents/skills/ directory found — run 'bun run build' first" >&2
+  else
+    for skill_dir in "$AGENTS_DIR"/gstack*/; do
+      [ -f "$skill_dir/SKILL.md" ] || continue
+      skill_name="$(basename "$skill_dir")"
+      target_dir="$VIBE_SKILLS/$skill_name"
+      mkdir -p "$target_dir"
+      # Generated Codex skills use $HOME/.codex (not ~/), plus $GSTACK_ROOT variables.
+      # Rewrite the default GSTACK_ROOT value and any remaining literal paths.
+      sed -e 's|\$HOME/.codex/skills/gstack|$HOME/.vibe/skills/gstack|g' \
+          -e "s|~/.codex/skills/gstack|~/.vibe/skills/gstack|g" \
+          -e "s|~/.claude/skills/gstack|~/.vibe/skills/gstack|g" \
+          "$skill_dir/SKILL.md" > "$target_dir/SKILL.md"
+    done
+    echo "gstack ready (vibe)."
+    echo "  browse: $BROWSE_BIN"
+    echo "  vibe skills: $VIBE_SKILLS"
+  fi
 fi
 
 # 7. Create .agents/ sidecar symlinks for the real Codex skill target.
