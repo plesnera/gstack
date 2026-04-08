@@ -35,7 +35,7 @@ log() { [ "$QUIET" -eq 0 ] && echo "$@" || true; }
 # ─── Parse flags ──────────────────────────────────────────────
 HOST="claude"
 LOCAL_INSTALL=0
-SKILL_PREFIX=1
+SKILL_PREFIX=0
 SKILL_PREFIX_FLAG=0
 TEAM_MODE=0
 NO_TEAM_MODE=0
@@ -44,8 +44,8 @@ while [ $# -gt 0 ]; do
     --host) [ -z "$2" ] && echo "Missing value for --host (expected claude, codex, kiro, vibe or auto)" >&2 && exit 1; HOST="$2"; shift 2 ;;
     --host=*) HOST="${1#--host=}"; shift ;;
     --local) LOCAL_INSTALL=1; shift ;;
-    --prefix)    SKILL_PREFIX=1; SKILL_PREFIX_FLAG=1; shift ;;
-    --no-prefix) SKILL_PREFIX=0; SKILL_PREFIX_FLAG=1; shift ;;
+#    --prefix)    SKILL_PREFIX=1; SKILL_PREFIX_FLAG=1; shift ;;
+#    --no-prefix) SKILL_PREFIX=0; SKILL_PREFIX_FLAG=1; shift ;;
     --team)    TEAM_MODE=1; shift ;;
     --no-team) NO_TEAM_MODE=1; shift ;;
     -q|--quiet) QUIET=1; shift ;;
@@ -149,6 +149,8 @@ elif [ "$HOST" = "kiro" ]; then
   INSTALL_KIRO=1
 elif [ "$HOST" = "factory" ]; then
   INSTALL_FACTORY=1
+elif [ "$HOST" = "vibe" ]; then
+  INSTALL_VIBE=1
 fi
 
 migrate_direct_codex_install() {
@@ -534,6 +536,39 @@ create_codex_runtime_root() {
   fi
 }
 
+create_claude_runtime_root() {
+  local gstack_dir="$1"
+  local claude_gstack="$HOME/.claude/skills/gstack"
+  local agents_dir="$gstack_dir/.agents/skills"
+
+  # Create runtime assets directory for Claude
+  mkdir -p "$claude_gstack" "$claude_gstack/browse" "$claude_gstack/gstack-upgrade" "$claude_gstack/review"
+
+  # Symlink runtime assets
+  if [ -d "$gstack_dir/bin" ]; then
+    ln -snf "$gstack_dir/bin" "$claude_gstack/bin"
+  fi
+  if [ -d "$gstack_dir/browse/dist" ]; then
+    ln -snf "$gstack_dir/browse/dist" "$claude_gstack/browse/dist"
+  fi
+  if [ -d "$gstack_dir/browse/bin" ]; then
+    ln -snf "$gstack_dir/browse/bin" "$claude_gstack/browse/bin"
+  fi
+  if [ -f "$agents_dir/gstack-upgrade/SKILL.md" ]; then
+    ln -snf "$agents_dir/gstack-upgrade/SKILL.md" "$claude_gstack/gstack-upgrade/SKILL.md"
+  fi
+  # Review runtime assets (individual files, NOT the whole review/ dir)
+  for f in checklist.md design-checklist.md greptile-triage.md TODOS-format.md; do
+    if [ -f "$gstack_dir/review/$f" ]; then
+      ln -snf "$gstack_dir/review/$f" "$claude_gstack/review/$f"
+    fi
+  done
+  # ETHOS.md — referenced by "Search Before Building" in all skill preambles
+  if [ -f "$gstack_dir/ETHOS.md" ]; then
+    ln -snf "$gstack_dir/ETHOS.md" "$claude_gstack/ETHOS.md"
+  fi
+}
+
 create_factory_runtime_root() {
   local gstack_dir="$1"
   local factory_gstack="$2"
@@ -592,6 +627,12 @@ link_factory_skill_dirs() {
     if [ -f "$skill_dir/SKILL.md" ]; then
       skill_name="$(basename "$skill_dir")"
       [ "$skill_name" = "gstack" ] && continue
+      # Strip gstack- prefix if SKILL_PREFIX=0
+      if [ "$SKILL_PREFIX" -eq 0 ]; then
+        case "$skill_name" in
+          gstack-*) skill_name="${skill_name#gstack-}" ;;
+        esac
+      fi
       target="$skills_dir/$skill_name"
       if [ -L "$target" ] || [ ! -e "$target" ]; then
         ln -snf "$skill_dir" "$target"
@@ -624,6 +665,11 @@ if [ "$INSTALL_CLAUDE" -eq 1 ]; then
     # reads the correct (patched) name: values for symlink naming
     "$SOURCE_GSTACK_DIR/bin/gstack-patch-names" "$SOURCE_GSTACK_DIR" "$SKILL_PREFIX"
     link_claude_skill_dirs "$SOURCE_GSTACK_DIR" "$INSTALL_SKILLS_DIR"
+    # Create symlink for browse binary (needed by browse skill)
+    if [ -d "$SOURCE_GSTACK_DIR/browse/dist" ]; then
+      mkdir -p "$INSTALL_SKILLS_DIR/browse"
+      ln -snf "$SOURCE_GSTACK_DIR/browse/dist" "$INSTALL_SKILLS_DIR/browse/dist"
+    fi
     # Self-healing: re-run gstack-relink to ensure name: fields and directory
     # names are consistent with the config. This catches cases where an interrupted
     # setup, stale git state, or gen:skill-docs left name: fields out of sync.
@@ -631,13 +677,15 @@ if [ "$INSTALL_CLAUDE" -eq 1 ]; then
     if [ -x "$GSTACK_RELINK" ]; then
       GSTACK_SKILLS_DIR="$INSTALL_SKILLS_DIR" GSTACK_INSTALL_DIR="$SOURCE_GSTACK_DIR" "$GSTACK_RELINK" >/dev/null 2>&1 || true
     fi
+    # Create runtime assets directory for Claude
+    create_claude_runtime_root "$SOURCE_GSTACK_DIR"
     # Backwards-compat alias: /connect-chrome → /open-gstack-browser
     _OGB_LINK="$INSTALL_SKILLS_DIR/connect-chrome"
     if [ "$SKILL_PREFIX" -eq 1 ]; then
       _OGB_LINK="$INSTALL_SKILLS_DIR/gstack-connect-chrome"
     fi
     if [ -L "$_OGB_LINK" ] || [ ! -e "$_OGB_LINK" ]; then
-      ln -snf "gstack/open-gstack-browser" "$_OGB_LINK"
+      ln -snf "$SOURCE_GSTACK_DIR/open-gstack-browser" "$_OGB_LINK"
     fi
     if [ "$LOCAL_INSTALL" -eq 1 ]; then
       log "gstack ready (project-local)."
@@ -647,14 +695,11 @@ if [ "$INSTALL_CLAUDE" -eq 1 ]; then
     fi
     log "  browse: $BROWSE_BIN"
   else
-    # Not inside a skills/ directory — symlink into ~/.claude/skills/ and retry
+    # Not inside a skills/ directory — create individual skill links in ~/.claude/skills/
     CLAUDE_SKILLS_DIR="$HOME/.claude/skills"
-    CLAUDE_GSTACK_LINK="$CLAUDE_SKILLS_DIR/gstack"
     mkdir -p "$CLAUDE_SKILLS_DIR"
-    ln -snf "$SOURCE_GSTACK_DIR" "$CLAUDE_GSTACK_LINK"
-    log "  symlinked $CLAUDE_GSTACK_LINK -> $SOURCE_GSTACK_DIR"
     INSTALL_SKILLS_DIR="$CLAUDE_SKILLS_DIR"
-    INSTALL_GSTACK_DIR="$CLAUDE_GSTACK_LINK"
+    INSTALL_GSTACK_DIR="$SOURCE_GSTACK_DIR"  # Use direct path instead of symlink
     # Clean up stale symlinks from the opposite prefix mode
     if [ "$SKILL_PREFIX" -eq 1 ]; then
       cleanup_old_claude_symlinks "$SOURCE_GSTACK_DIR" "$INSTALL_SKILLS_DIR"
@@ -663,16 +708,23 @@ if [ "$INSTALL_CLAUDE" -eq 1 ]; then
     fi
     "$SOURCE_GSTACK_DIR/bin/gstack-patch-names" "$SOURCE_GSTACK_DIR" "$SKILL_PREFIX"
     link_claude_skill_dirs "$SOURCE_GSTACK_DIR" "$INSTALL_SKILLS_DIR"
+    # Create symlink for browse binary (needed by browse skill)
+    if [ -d "$SOURCE_GSTACK_DIR/browse/dist" ]; then
+      mkdir -p "$INSTALL_SKILLS_DIR/browse"
+      ln -snf "$SOURCE_GSTACK_DIR/browse/dist" "$INSTALL_SKILLS_DIR/browse/dist"
+    fi
     GSTACK_RELINK="$SOURCE_GSTACK_DIR/bin/gstack-relink"
     if [ -x "$GSTACK_RELINK" ]; then
       GSTACK_SKILLS_DIR="$INSTALL_SKILLS_DIR" GSTACK_INSTALL_DIR="$SOURCE_GSTACK_DIR" "$GSTACK_RELINK" >/dev/null 2>&1 || true
     fi
+    # Create runtime assets directory for Claude
+    create_claude_runtime_root "$SOURCE_GSTACK_DIR"
     _OGB_LINK="$INSTALL_SKILLS_DIR/connect-chrome"
     if [ "$SKILL_PREFIX" -eq 1 ]; then
       _OGB_LINK="$INSTALL_SKILLS_DIR/gstack-connect-chrome"
     fi
     if [ -L "$_OGB_LINK" ] || [ ! -e "$_OGB_LINK" ]; then
-      ln -snf "gstack/open-gstack-browser" "$_OGB_LINK"
+      ln -snf "$SOURCE_GSTACK_DIR/open-gstack-browser" "$_OGB_LINK"
     fi
     log "gstack ready (claude)."
     log "  browse: $BROWSE_BIN"
@@ -741,6 +793,12 @@ if [ "$INSTALL_KIRO" -eq 1 ]; then
     for skill_dir in "$AGENTS_DIR"/gstack*/; do
       [ -f "$skill_dir/SKILL.md" ] || continue
       skill_name="$(basename "$skill_dir")"
+      # Strip gstack- prefix if SKILL_PREFIX=0
+      if [ "$SKILL_PREFIX" -eq 0 ]; then
+        case "$skill_name" in
+          gstack-*) skill_name="${skill_name#gstack-}" ;;
+        esac
+      fi
       target_dir="$KIRO_SKILLS/$skill_name"
       mkdir -p "$target_dir"
       # Generated Codex skills use $HOME/.codex (not ~/), plus $GSTACK_ROOT variables.
@@ -795,11 +853,11 @@ if [ "$INSTALL_VIBE" -eq 1 ]; then
     fi
   done
 
-  # Rewrite root SKILL.md paths for Kiro
-  sed -e "s|~/.claude/skills/gstack|~/.vibe/skills/gstack|g" \
-      -e "s|\.claude/skills/gstack|.vibe/skills/gstack|g" \
-      -e "s|\.claude/skills|.vibe/skills|g" \
-      "$SOURCE_GSTACK_DIR/SKILL.md" > "$VIBE_GSTACK/SKILL.md"
+  # Rewrite root SKILL.md paths for Kiro (but don't install as a skill for vibe)
+  # sed -e "s|~/.claude/skills/gstack|~/.vibe/skills/gstack|g" \
+  #   -e "s|\.claude/skills/gstack|.vibe/skills/gstack|g" \
+  #   -e "s|\.claude/skills|.vibe/skills|g" \
+  #   "$SOURCE_GSTACK_DIR/SKILL.md" > "$VIBE_GSTACK/SKILL.md"
 
   if [ ! -d "$AGENTS_DIR" ]; then
     echo "  warning: no .agents/skills/ directory found — run 'bun run build' first" >&2
@@ -807,6 +865,17 @@ if [ "$INSTALL_VIBE" -eq 1 ]; then
     for skill_dir in "$AGENTS_DIR"/gstack*/; do
       [ -f "$skill_dir/SKILL.md" ] || continue
       skill_name="$(basename "$skill_dir")"
+      # Skip the base gstack directory - it should only exist for runtime assets
+      if [ "$skill_name" = "gstack" ]; then
+        continue
+      fi
+      # Strip gstack- prefix if SKILL_PREFIX=0, but keep gstack-upgrade prefixed
+      if [ "$SKILL_PREFIX" -eq 0 ]; then
+        case "$skill_name" in
+          gstack-upgrade) ;;  # Keep gstack-upgrade prefixed
+          gstack-*) skill_name="${skill_name#gstack-}" ;;
+        esac
+      fi
       target_dir="$VIBE_SKILLS/$skill_name"
       mkdir -p "$target_dir"
       # Generated Codex skills use $HOME/.codex (not ~/), plus $GSTACK_ROOT variables.
@@ -819,6 +888,16 @@ if [ "$INSTALL_VIBE" -eq 1 ]; then
     echo "gstack ready (vibe)."
     echo "  browse: $BROWSE_BIN"
     echo "  vibe skills: $VIBE_SKILLS"
+  fi
+  # Create symlink for browse binary (needed by browse skill)
+  if [ -d "$SOURCE_GSTACK_DIR/browse/dist" ]; then
+    mkdir -p "$VIBE_SKILLS/browse"
+    ln -snf "$SOURCE_GSTACK_DIR/browse/dist" "$VIBE_SKILLS/browse/dist"
+  fi
+  # Backwards-compat alias: /connect-chrome → /open-gstack-browser
+  _VIBE_OGB_LINK="$VIBE_SKILLS/connect-chrome"
+  if [ -L "$_VIBE_OGB_LINK" ] || [ ! -e "$_VIBE_OGB_LINK" ]; then
+    ln -snf "$SOURCE_GSTACK_DIR/open-gstack-browser" "$_VIBE_OGB_LINK"
   fi
 fi
 

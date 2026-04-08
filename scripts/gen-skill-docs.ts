@@ -39,6 +39,7 @@ const HOST_ARG_VAL: HostArg = (() => {
     throw new Error(`Unknown host: ${val}. Use ${ALL_HOST_NAMES.join(', ')}, or all.`);
   }
 })();
+console.log(HOST_ARG_VAL)
 
 // For single-host mode, HOST is the host. For --host all, it's set per iteration below.
 let HOST: Host = HOST_ARG_VAL === 'all' ? 'claude' : HOST_ARG_VAL;
