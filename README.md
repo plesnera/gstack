@@ -1,33 +1,92 @@
 # gstack
 
-> "I don't think I've typed like a line of code probably since December, basically, which is an extremely large change." — [Andrej Karpathy](https://fortune.com/2026/03/21/andrej-karpathy-openai-cofounder-ai-agents-coding-state-of-psychosis-openclaw/), No Priors podcast, March 2026
+Forked from Garry Tan's repo and only lightly modified - adding Mistral vibe and highlighting some already existing Gemini support.
+Please check out his original repo which is evolving rapidly: https://github.com/garrytan/gstack.git
 
-When I heard Karpathy say this, I wanted to find out how. How does one person ship like a team of twenty? Peter Steinberger built [OpenClaw](https://github.com/openclaw/openclaw) — 247K GitHub stars — essentially solo with AI agents. The revolution is here. A single builder with the right tooling can move faster than a traditional team.
+# GStack Skills Overview
+The GSTACK skills provide a very usefull set of focused personas/roles that across the board improves any model - whether it is the original Claude/Codex  
+primary targets or other providers like Mistral, DeepSeek, Minimax etc.
 
-I'm [Garry Tan](https://x.com/garrytan), President & CEO of [Y Combinator](https://www.ycombinator.com/). I've worked with thousands of startups — Coinbase, Instacart, Rippling — when they were one or two people in a garage. Before YC, I was one of the first eng/PM/designers at Palantir, cofounded Posterous (sold to Twitter), and built Bookface, YC's internal social network.
+They do take up quite a lot of tokens and I've therefore trimmed some of them lightly and will continue to do so.
 
-**gstack is my answer.** I've been building products for twenty years, and right now I'm shipping more code than I ever have. In the last 60 days: **600,000+ lines of production code** (35% tests), **10,000-20,000 lines per day**, part-time, while running YC full-time. Here's my last `/retro` across 3 projects: **140,751 lines added, 362 commits, ~115k net LOC** in one week.
+## Core Workflows
+| Skill                     | Description                                                                                     | 
+|---------------------------|-------------------------------------------------------------------------------------------------|
+| **autoplan**              | Auto-review pipeline for CEO, design, eng, and DX reviews. Runs sequentially with auto-decisions. |
+| **land-and-deploy**       | Merges PR, waits for CI/deploy, and verifies production health via canary checks.               |
+| **ship**                  | Detects base branch, runs tests, reviews diff, bumps `VERSION`, updates `CHANGELOG`, and creates PR. |
+| **review**                | Pre-landing PR review for SQL safety, LLM trust boundaries, and conditional side effects.      |
+| **investigate**           | Systematic debugging with root cause analysis. Four phases: investigate, analyze, hypothesize, implement. |
+| **qa**                    | Systematically QA test a web app, fix bugs, and verify fixes. Three tiers: Quick, Standard, Exhaustive. |
+| **qa-only**               | Report-only QA testing with structured bug reports, screenshots, and repro steps.               |
+| **document-release**      | Post-ship documentation updates. Syncs `README`, `ARCHITECTURE`, `CONTRIBUTING`, and `CHANGELOG`. |
 
-**2026 — 1,237 contributions and counting:**
+---
 
-![GitHub contributions 2026 — 1,237 contributions, massive acceleration in Jan-Mar](docs/images/github-2026.png)
+## Planning & Strategy
+| Skill                     | Description                                                                                     |
+|---------------------------|-------------------------------------------------------------------------------------------------|
+| **plan-ceo-review**       | CEO/founder-mode plan review. Rethink scope, ambition, and product vision.                     |
+| **plan-eng-review**       | Eng manager-mode plan review. Locks in architecture, data flow, edge cases, and test coverage. |
+| **plan-design-review**    | Designer’s eye plan review. Rates design dimensions 0-10 and iterates to improve.               |
+| **plan-devex-review**     | Developer experience plan review. Benchmarks against competitors and designs magical moments.  |
+| **office-hours**          | YC Office Hours: startup mode (6 forcing questions) or builder mode (design thinking).          |
 
-**2013 — when I built Bookface at YC (772 contributions):**
+---
 
-![GitHub contributions 2013 — 772 contributions building Bookface at YC](docs/images/github-2013.png)
+## Design & UI
+| Skill                     | Description                                                                                     |
+|---------------------------|-------------------------------------------------------------------------------------------------|
+| **design-consultation**   | Creates a complete design system (aesthetic, typography, color, layout) and `DESIGN.md`.        |
+| **design-shotgun**        | Generates multiple AI design variants, collects feedback, and iterates.                         |
+| **design-html**           | Generates production-quality Pretext-native HTML/CSS from approved mockups or plans.            |
+| **design-review**         | Visual QA for live sites. Finds inconsistencies, spacing issues, and hierarchy problems.        |
 
-Same person. Different era. The difference is the tooling.
+---
 
-**gstack is how I do it.** It turns Claude Code into a virtual engineering team — a CEO who rethinks the product, an eng manager who locks architecture, a designer who catches AI slop, a reviewer who finds production bugs, a QA lead who opens a real browser, a security officer who runs OWASP + STRIDE audits, and a release engineer who ships the PR. Twenty-three specialists and eight power tools, all slash commands, all Markdown, all free, MIT license.
+## Security
+| Skill                     | Description                                                                                     |
+|---------------------------|-------------------------------------------------------------------------------------------------|
+| **cso**                   | Chief Security Officer mode. Secrets archaeology, dependency supply chain, and OWASP Top 10.    |
 
-This is my open source software factory. I use it every day. I'm sharing it because these tools should be available to everyone.
+---
 
-Fork it. Improve it. Make it yours. And if you want to hate on free open source software — you're welcome to, but I'd rather you just try it first.
+## Developer Experience
+| Skill                     | Description                                                                                     |
+|---------------------------|-------------------------------------------------------------------------------------------------|
+| **devex-review**          | Live DX audit. Tests docs, getting started flows, CLI help text, and TTHW.                     |
+| **setup-deploy**          | Configures deployment settings for `land-and-deploy`. Detects platform and health check endpoints. |
 
-**Who this is for:**
-- **Founders and CEOs** — especially technical ones who still want to ship
-- **First-time Claude Code users** — structured roles instead of a blank prompt
-- **Tech leads and staff engineers** — rigorous review, QA, and release automation on every PR
+---
+
+## Browser & Interaction
+| Skill                     | Description                                                                                     |
+|---------------------------|-------------------------------------------------------------------------------------------------|
+| **browse**                | Fast headless browser for QA testing, site dogfooding, and interaction verification.            |
+| **open-gstack-browser**   | Launches GStack Browser (AI-controlled Chromium with sidebar extension).                        |
+| **pair-agent**            | Pairs a remote AI agent with your browser. Generates a setup key for scoped access.             |
+| **setup-browser-cookies** | Imports cookies from your real Chromium browser into the headless session.                      |
+
+---
+
+## Safety & Session Management
+| Skill                     | Description                                                                                     |
+|---------------------------|-------------------------------------------------------------------------------------------------|
+| **careful**               | Safety guardrails for destructive commands (e.g., `rm -rf`, `DROP TABLE`, force-push).         |
+| **guard**                 | Full safety mode: combines `careful` (destructive command warnings) + `freeze` (directory-scoped edits). |
+| **freeze**                | Restricts file edits to a specific directory for the session.                                  |
+| **unfreeze**              | Clears the freeze boundary set by `freeze`.                                                     |
+| **checkpoint**            | Saves and resumes working state checkpoints (git state, decisions, remaining work).             |
+
+---
+
+## Utilities
+| Skill                     | Description                                                                                     |
+|---------------------------|-------------------------------------------------------------------------------------------------|
+| **gstack-upgrade**        | Upgrades `gstack` to the latest version. Detects global vs. vendored installs.                 |
+| **learn**                 | Manages project learnings. Review, search, prune, and export session learnings.                |
+| **retro**                 | Weekly engineering retrospective. Analyzes commit history, work patterns, and code quality.    |
+
 
 ## Quick start
 
@@ -110,7 +169,7 @@ These are conversational skills. Your OpenClaw agent runs them directly via chat
 
 ### Other AI Agents
 
-gstack works on 8 AI coding agents, not just Claude. Setup auto-detects which
+gstack works on 9 AI coding agents, not just Claude. Setup auto-detects which
 agents you have installed:
 
 ```bash
@@ -123,11 +182,13 @@ Or target a specific agent with `./setup --host <name>`:
 | Agent | Flag | Skills install to |
 |-------|------|-------------------|
 | OpenAI Codex CLI | `--host codex` | `~/.codex/skills/gstack-*/` |
+| Google Gemini CLI | `--host codex` | `.agents/skills/gstack-*/` (shared with Codex) |
 | OpenCode | `--host opencode` | `~/.config/opencode/skills/gstack-*/` |
 | Cursor | `--host cursor` | `~/.cursor/skills/gstack-*/` |
 | Factory Droid | `--host factory` | `~/.factory/skills/gstack-*/` |
 | Slate | `--host slate` | `~/.slate/skills/gstack-*/` |
 | Kiro | `--host kiro` | `~/.kiro/skills/gstack-*/` |
+| Mistral Vibe | `--host vibe` | `~/.vibe/skills/gstack-*/` |
 
 **Want to add support for another agent?** See [docs/ADDING_A_HOST.md](docs/ADDING_A_HOST.md).
 It's one TypeScript config file, zero code changes.
